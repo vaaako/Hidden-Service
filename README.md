@@ -32,17 +32,24 @@ These lines basically mean: *"any incoming traffic to port of your Onion Service
 In other words: *"Anything running on `127.0.0.1` will be your **Hidden Service**"*
 
 
+<hr>
+
 # Hosting
 There are two main ways to host a **Hidden Service**
-1. "Manually" *(don't know what to call it)*
+1. "Manually" *(I don't know what to call it)*
      - More workable if you only want to leave it on for a while
-2. Webhosting *(recommended)*
+2. Webhosting *(`Nginx` or `Apache`)*
      - more dedicated
+     - Recommended
 
 Restart the tor:
 ```sh
 sudo systemctl restart tor
 ```
+
+>The `/var/lib/hidden_service` directory is created when `tor` restarts * (so instead of `hidden_service` it can be whatever name you want)*
+
+>In this file are the "keys" to your **Hidden Service**. They are used to give you access to your **Hidden Service**, anyone who has access to them can use your **Hidden Service** URL
 
 Don't forget that **Hidden Service** won't work if your **Firewall** blocks `Apache`, even if everything is ok
 
@@ -89,13 +96,13 @@ sudo cat /var/lib/tor/hidden_service # Replace "hidden_service" with the name yo
 ```
 
 ## Webhosting
+In short, Webhosting is a service that allows you to put your website on the internet for other people to see
+
 ### Apache
 First of all you need to set an `Apache` server to run on **port 80** *(default port)*<br>
+>You can see my [Nginx tutorial](https://github.com/vaaako/Apache-Tutorial)
 
->You can see my [Apache] tutorial(https://github.com/vaaako/
-Apache-Tutorial)
-
->You can also just run the `bash script` to create an `apache` server automatically, if you don't want to see the tutorial
+>You can also just run the `bash script` to create an `Nginx` server automatically, if you don't want to see the tutorial
 
 Turn on `Apache`:
 ```sh
@@ -103,56 +110,140 @@ sudo systemctl start apache2
 ```
 Check if it's working by typing `127.0.0.1` in your browser
 
-Now just open Tor Browser and enter the link of your **Hidden Service**<br>
+Now just open **Tor Browser** and enter the link of your **Hidden Service**<br>
 To know the link of your **Hidden Service** type the command:
 ```sh
 sudo cat /var/lib/tor/hidden_service # Replace "hidden_service" with the name you chose earlier
 ```
 
-sudo systemctl start apache
-### Nginx
-*soon* *(basically the same thing as `Apache`)*
+
+Add your **Hidden Service** link to `/etc/apache2/sites-avaiable/your_domain.conf`<br>
+Here is an example of what the `.conf` file of your **Hidden Service** should look like:
+```html
+<VirtualHost *:80>
+    ServerName youronionaddress.onion
+    DocumentRoot /var/www/your_hidden_service_root_directory # what a big name
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+```
 
 
+## Nginx
+`Nginx` is the recommended for an **Hidden Service**. `Nginx` is faster, simpler and accepts sockets
+>And `Nginx` is considered much more secure than `Apache` server
+
+First of all you need to set an `Nginx` server to run on **port 80** *(default port)*<br>
+>You can see my [Nginx tutorial](https://github.com/vaaako/Nginx-Tutorial)
+
+<!-- >You can also just run the `bash script` to create an `Nginx` server automatically, if you don't want to see the tutorial -->
+
+Turn on `Nginx`:
+```sh
+sudo systemctl start nginx
+```
+Check if it's working by typing `127.0.0.1` in your browser
+
+To know the link of your **Hidden Service** type the command:
+```sh
+sudo cat /var/lib/tor/hidden_service # Replace "hidden_service" with the name you chose earlier
+```
+
+
+Add your **Hidden Service** link to `/etc/nginx/sites-avaiable/your_domain.conf`<br>
+Here is an example of what the `.conf` file of your **Hidden Service** should look like:
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+
+    root /var/www/your_domain/html; # you can type just "/var/www/your_domain"
+    index index.html
+  
+    server_name localhost 127.0.0.1 yourhiddenserviceaddres.onion # "localhost" and "127.0.0.1" are not required, here just for testing purposes (your addres shoudn't have "http://" or a "/" at the end)
+   
+    access_log /var/log/nginx/my-website.log;
+}
+```
+
+Now just open **Tor Browser** and enter the link of your **Hidden Service**
+
+<hr>
 
 # PRECAUTIONS
 ### WARNING: REMEMBER THAT EVERYTHING RUNNING AT 127.0.0.1:80 WILL BE APPEARING IN YOUR HIDDEN SERVICE
 
-## Shutting down Tor and Apache
-You can choose to turn off `tor` or `apache` by typing:
-```sh
-sudo systemctl stop apache2 # or tor
+## Changing ports
+I recommend running your **Hidden Service** on another port, because the **port 80** is a very common port to have something running, I will show you how to change port using the **port 8080** as an example
+
+### Nginx
+In your `/etc/nginx/sites-avaiable/your_domain.conf` file change to:
+```nginx
+server {
+    listen 8080; # Change here
+    listen [::]:80; # And here
+    ...
+}
 ```
 
-If you just turn off `Apache` your **Hidden Service** will also stop, since *(in theory)* nothing is running on the port that would be your **Hidden Service**
+### Apache
+In your `/etc/apache2/sites-avaiable/your_domain.conf` file change to:
+```html
+<VirtualHost *:8080> # Change here
+    ...
+</VirtualHost>
+```
+
+### torrc
+Now in the file `/etc/tor/torrc` change to:
+```
+HiddenServiceDir /var/lib/tor/hidden_service/
+HiddenServicePort 80 127.0.0.1:8080 # Change here
+```
+
+
+Now restart `Apache`/`Nginx` and `tor`:
+```sh
+sudo systemctl restart apache2/nginx # change it durrh
+sudo systemctl restart tor
+```
+
+## Shutting down Tor and Apache
+You can choose to turn off `tor` or `Apache/Nginx` by typing:
+```sh
+sudo systemctl stop apache2/nginx # or tor
+```
+>Obviously instead of *"`apache/nginx`"* type `apache2` **or** `nginx` *(depends on wich one you are using :P)*
+
+If you just turn off `Apache/Nginx` your **Hidden Service** will also stop, since *(in theory)* nothing is running on the port that would be your **Hidden Service**
 
 To turn on type:
 ```sh
-sudo systemctl start apache2 # or tor
+sudo systemctl start apache2/nginx # or tor
 ```
 
-However, when you restart your computer, `Apache` and `tor` will start automatically<br>
+However, when you restart your computer, `Apache/Nginx` and `tor` will start automatically<br>
 To prevent this use the command:
 ```sh
-sudo systemctl disable apache2 # or tor
+sudo systemctl disable apache2/nginx # or tor
 ```
 
->Technically just turning off `Apache` would solve the problem, for the same explanation above, however I recommend turning off either just `tor` or both
+>Technically just turning off `Apache/Nginx` would solve the problem, for the same explanation above, however I recommend turning off either just `tor` or both
 
 To turn on each service type:
 ```sh
-sudo systemctl start apache2 # or... aaah you get it
+sudo systemctl start apache2/nginx # or... aaah you get it
 ```
 
 Now when you restart your computer, none of the services will turn on automatically<br>
 To enable them back type:
 ```sh
-sudo systemctl enable apache2
+sudo systemctl enable apache2/nginx
 ```
 
 You know which is on/off and which is enabled/disabled by typing:
 ```sh
-sudo systemctl status apache2
+sudo systemctl status apache2/nginx
 ```
 
 >If you are using the "Manual" *(I still don't know how to call it)*, just stop `php`
@@ -164,12 +255,12 @@ sudo systemctl status apache2
 >*(Install `nmap` by typing: `sudo apt install nmap`)*
 
 
-## conf
-> `confs` are configuration files, but some of them, are accessed as pages, `phpmysql` for example: `127.0.0.1/phpmyadmin`.
+## conf/snippets
+> `confs` (`Apache`) and `snippets` (`Nginx`) are configuration files, but some of them, are accessed as pages, `phpmysql` for example: `127.0.0.1/phpmyadmin`.
 
->If you have one enabled, the `conf` can also be accessed in the **Hidden Service**
+>If you have one enabled, the `conf/snippets` can also be accessed in the **Hidden Service**
 
-It is also extremely important to remember to disable the `confs` of `Apache` *(I don't know if `Nginx` has something similar)*<br>
+It is also extremely important to remember to disable the `confs/snippets` of `Apache/Nginx`<br>
 Like `phpmyadmin` for example *(probably the most common)*
 
 You can check for `confs` enabled by typing:
@@ -177,19 +268,39 @@ You can check for `confs` enabled by typing:
 sudo ls /etc/apache2/conf-enabled/
 ```
 
->**WARNING:** not all `confs` are accessed as pages *(none of the defaults for example)*, but it is important to pay attention to this
+And you can check for `snippets` enabled by typing:
+```sh
+sudo ls /etc/nginx/snippets/
+```
 
->`confs` defaults are: `charset.conf`, `security.conf`, `localized-error-pages.conf`, `serve-cgi-bin.conf`, `other-vhosts-access-log.conf`
+
+>**WARNING:** not all `confs/snippets` are accessed as pages *(none of the defaults for example)*, but it is important to pay attention to this
+
+>default `confs` are: `charset.conf`, `security.conf`, `localized-error-pages.conf`, `serve-cgi-bin.conf`, `other-vhosts-access-log.conf`
+
+>default `snippets` are: `fastcgi-php.conf`, `snakeoil.conf`
 
 To disable a `conf` type:
 ```sh
 sudo a2disconf /etc/apache2/conf-enabled/phpmyadmin.conf # change phpmyadmin.conf
 ```
 
-To enable back:
+To disable a `snippet` type:
+```sh
+# idk help (maybe you will never need to)
+```
+
+To enable a `conf` back:
 ```sh
 sudo a2enconf /etc/apache2/conf-avaiable/phpmyadmin.conf # change phpmyadmin.conf
 ```
+
+To enable a `snippet` back:?
+```sh
+# idk either help (i still think you won't need to)
+```
+
+<hr>
 
 # Vanity
 `Vanity` is a way to have a custom `.onion` URL *(not all of it, just the first few characters)*
@@ -200,7 +311,7 @@ git clone https://github.com/cathugger/mkp224o.git
 cd mkp224o
 ./autogen.sh
 ./configure # On AMD64 add --enable-amd64-51-30k
-make up
+make
 ```
 
 ## Generating
@@ -271,7 +382,58 @@ Time to Generate a `.onion` with a Given Number of Initial Characters on a **1.5
 
 >From [Shallot](https://github.com/dendisuhubdy/Shallot)
 
+<hr>
+
 # Security
+## Unix Socket
+>It took me a VERY long time *(call me an idiot if you like)* to figure out how to do this, but I finally did and can bring you this tip
+
+A good practice to avoid leaking an Onion Service to a local network is to run Onion Services over `Unix sockets` instead of a TCP socket
+
+>I'll only be showing how to use `Unix Socket files` in the `Webhost` method
+
+>**What is a `Unix Socket File`?**: A `Unix socket file` is a type of endpoint for inter-process communication (IPC) between processes on a Unix-like operating system. Unlike a network socket, it is not accessible over the network and is only accessible by processes on the same system. This makes `Unix socket files` a more secure way for processes to communicate, as it reduces the attack surface that could be exploited by an attacker over the network. `Unix socket files` are commonly used for local communication between server and client processes, such as in the case of a web server communicating with a CGI script.
+
+### Nginx
+Add the following line to `/etc/nginx/sites-avaiable/your_domain.conf`:
+
+```
+server {
+    # Comment this two:
+    #listen 80;
+    #listen [::]:80;
+
+    listen unix:/var/run/tor-mywebsite.sock; # <- add this one
+    ...
+}
+```
+>it can be whatever name you want
+
+Restart `Nginx`:
+```sh
+sudo systemctl restart nginx
+```
+
+Give the file access privilege
+```sh
+sudo chmod 775 tor-mywebsite.sock
+```
+
+Restart `tor`:
+```sh
+sudo systemctl restart tor
+```
+
+>If you start or restart `Nginx` and the file already exists, `Nginx` will give an error and won't start, to solve this just delete the socket file as it is created when `Nginx` starts
+
+### Apache
+>This topic has not been tested yet
+
+```html
+Use Nginx for this, sorry
+```
+
+
 ## Vanguards
 *"This addon is designed to make it as hard as possible for someone to determine the IP address of an onion service. Success of an attack depends on the adversary's ability to run large portions of the Tor network in addition to being able to compromise honest nodes."*
 
@@ -288,10 +450,18 @@ Add the `debian-tor` user to the **sudo users** list:
 sudo adduser debian-tor sudo
 ```
 
+However, as you may know *(or should know)*, in order to use `sudo` commands you need to extract the user's `sudo` password, but I couldn't find the `sudo` password for `debian-tor`, so my alternative is to reset `debian-tor`'s password:
+```sh
+sudo passwd debian-tor
+```
+>Choose a strong password *(and different from your PC's default user)*
+
 To "log in" as the `debian-tor` user type:
 ```sh
 sudo -u debian-tor bash
 ```
+
+>**WARNING:** `Vanguards` will only work if `for` is running, to run it on type: `sudo systemctl start tor`
 
 There are **3 methods** of installation, however, the one that worked best for me was the **third**, so I'll only be showing the **third method**, if you want to check out the other two installation methods yourself you can check the github page of [**Vanguards**](https://github.com/mikeperry-tor/vanguards)
 
@@ -336,7 +506,7 @@ CookieAuthentication 1
 DataDirectory /var/lib/hidden_service # change "hidden_service" to you actual hidden_service directory's name
 ```
 
-# Using
+## Using
 Just run it:
 ```sh
 sudo vanguards --control_port 9099 #(or --control_socket path/to/socket)
@@ -351,6 +521,9 @@ Use `nmap` *(as shown before)* to see what port `tor` is running on, if it's dif
 Learn more about `Vanguards` on their [github](https://github.com/mikeperry-tor/vanguards) page and [here](https://blog.torproject.org/announcing-vanguards-add-onion-services/) *(it's important)*
 
 ## Onionscan
+>It took me a VERY long time to find a version of `onionscan` that was not outdated, until I found this version on [Hack Guru's channel](https://www.youtube.com/watch?v=vXcTcSwdW08&pp=ugMICgJwdBABGAHKBQ1vbmlvbnNjYW4gdG9y) *(thank you so much)*
+
+
 *"OnionScan is a free and open source tool for investigating the Dark Web. For all the amazing technological innovations in the anonymity and privacy space, there is always a constant threat that has no effective technological"*
 
 `Onionscan` in short, is a tool to find security flaws in an `.onion` website<br>
@@ -367,7 +540,6 @@ wget https://github.com/CypherpunkSamurai/onionscan/releases/download/release-0.
 mv linux_i386 onionscan
 sudo chmod 775 onionscan
 ./onionscan -h
-
 ```
 
 >Depending on your **system** and **processor** you may need to change `linux_i386` *(at the end of the `wget` command)* to one of the options: `darwin_amd64`, `linux_amd64`, `windows_amd64`, ` windows_i386`,
@@ -394,7 +566,7 @@ go install github.com/CypherpunkSamurai/onionscan
 >It will probably give an error if you have a version of `go` above `1.7`, so I preferred to do it with another method *(besides being faster)*
 
 
-## Some command
+## Some commands
 ### Basic scan
 ```sh
 sudo ./onionscan realhiddenservice.onion
@@ -420,3 +592,51 @@ sudo ./onionscan --torProxyAddress=127.0.0.1:9150 realhiddenservice.onion
 ```
 
 See more about `onionscan` at [forked github](https://github.com/CypherpunkSamurai/onionscan), [original github](https://github.com/s-rah/onionscan) and [docs](https://github.com/CypherpunkSamurai/onionscan/blob/master/doc/README.md)
+
+## Onion Browser
+As this is not the focus of this tutorial, I will just be giving you some quick security tips for the **Tor Browser**, without explaining too much
+
+First of all, `Vanguards` can be used together with the **Tor Browser**, check the [Vanguards] github (https://github.com/mikeperry-tor/vanguards)
+
+One very important thing is that the Tor Browser does NOT come with all secure settings by default, even if you enable the *"More secure"* option in the settings
+
+So you can click on [this link]() to see a PDF with all the options you need to configure *(The PDF is in English, I would rewrite it here, but it is too big and the Tor Browser is not the focus of this tutorial... maybe later)*
+
+
+## Changing access privileges
+#### WARNING: This topic is not complete, untested and subject to change
+
+
+This tip is not as important as the others, but if you have a dedicated server it might be a good idea to run it
+
+This means: every directory that is for the exclusive use of your **Hidden Service** should only be accessible to the `debian-tor` user * (`debian-tor` is a user created when `tor` is installed and is a user that has access to the `tor` files)
+
+## Root Dir
+Where your site files are stored
+to change access type:
+```sh
+sudo chown -R debian-tor:debian-tor /var/www/your_domain
+```
+
+## Hidden Service Keys
+Where your **Hidden Service** keys are located
+
+>Hidden Service Keys are what give you permission to use your Hidden Service URL, so if someone else has access to them, they can use your URL
+
+```sh
+sudo chown -R debian-tor:debian-tor /var/lib/tor/hidden_service
+```
+
+## Socket
+Only if you have a `Unix Socket file` for your **Hidden Service** *(You should if you don't)*
+
+```sh
+sudo chown -R debian-tor:debian-tor /var/run/tor-mywebsite.sock
+```
+
+
+
+
+
+**Author:** *Vako*<br>
+**Last edit:** *23/04/2023*
