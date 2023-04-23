@@ -3,6 +3,7 @@ In this tutorial I will be teaching:
 - How to create a **Hidden Service** *(a `.onion` site)*
 - Vanity *(Customizable link)*
 - Basic security tips for the **Hidden Service**
+- Tutorials that conventional tutorials do not show
 
 This tutorial requires you to know **at least** the basics of:
 - Linux
@@ -13,7 +14,7 @@ This tutorial requires you to know **at least** the basics of:
 >I recommend using `Nginx`, although `Apache` is easier to configure
 
 
-#Configuration
+# Configuration
 Install tor:
 ```sh
 sudo apt install tor
